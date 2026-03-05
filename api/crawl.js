@@ -1,0 +1,97 @@
+import Parser from 'rss-parser';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Client } from "@notionhq/client";
+
+const parser = new Parser();
+
+export default async function handler(req, res) {
+    // 1. Initial configuration (normally from Vercel KV or DB)
+    // For now, we use a simple mock configuration
+    const config = {
+        sources: [
+            { name: 'BBC News', url: 'https://feeds.bbci.co.uk/news/rss.xml' }
+        ],
+        keywords: ['AI', 'Tech', 'Economy'],
+        geminiKey: process.env.GEMINI_API_KEY,
+        notionKey: process.env.NOTION_API_KEY,
+        notionDbId: process.env.NOTION_DATABASE_ID
+    };
+
+    if (!config.geminiKey || !config.notionKey) {
+        return res.status(500).json({ error: 'System missing API keys' });
+    }
+
+    const genAI = new GoogleGenerativeAI(config.geminiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const notion = new Client({ auth: config.notionKey });
+
+    const results = [];
+
+    try {
+        for (const source of config.sources) {
+            const feed = await parser.parseURL(source.url);
+
+            for (const item of feed.items) {
+                const textToSearch = `${item.title} ${item.contentSnippet || item.content}`.toLowerCase();
+                const matches = config.keywords.some(kw => textToSearch.includes(kw.toLowerCase()));
+
+                if (matches) {
+                    // 2. Generate AI Summary
+                    const prompt = `
+            Analyze this news article:
+            Title: ${item.title}
+            Summary: ${item.contentSnippet || item.content}
+            Date: ${item.pubDate}
+
+            Please provide exactly 3 concise bullet points (Vietnamese) summarizing the key insights.
+            Format the output as a literal JSON object: {"summary": ["point 1", "point 2", "point 3"]}
+          `;
+
+                    const aiResponse = await model.generateContent(prompt);
+                    const aiText = aiResponse.response.text();
+                    let insight;
+                    try {
+                        insight = JSON.parse(aiText.substring(aiText.indexOf('{'), aiText.lastIndexOf('}') + 1));
+                    } catch (e) {
+                        insight = { summary: ["Could not parse AI summary"] };
+                    }
+
+                    // 3. Sync to Notion
+                    await notion.pages.create({
+                        parent: { database_id: config.notionDbId },
+                        properties: {
+                            Title: { title: [{ text: { content: item.title } }] },
+                            Link: { url: item.link },
+                            Source: { select: { name: source.name } },
+                            Date: { date: { start: new Date(item.pubDate).toISOString() } },
+                            Insights: { rich_text: [{ text: { content: insight.summary.join('\n') } }] }
+                        },
+                        children: [
+                            {
+                                object: 'block',
+                                type: 'paragraph',
+                                paragraph: {
+                                    rich_text: [{ text: { content: 'Key Insights (30s):' }, annotations: { bold: true } }]
+                                }
+                            },
+                            ...insight.summary.map(point => ({
+                                object: 'block',
+                                type: 'bulleted_list_item',
+                                bulleted_list_item: {
+                                    rich_text: [{ text: { content: point } }]
+                                }
+                            }))
+                        ]
+                    });
+
+                    results.push({ title: item.title, status: 'Synced' });
+                }
+            }
+        }
+
+        return res.status(200).json({ status: 'Success', processed: results.length, details: results });
+    } catch (error) {
+        console.error('Crawl Error:', error);
+        return res.status(500).json({ error: error.message });
+    }
+}
