@@ -28,7 +28,7 @@ function App() {
                 body: JSON.stringify({ ...config, adminPin })
             });
             if (res.ok) {
-                setStatus('Success!');
+                setStatus('Success');
                 setTimeout(() => setStatus('Idle'), 2000);
             } else {
                 const error = await res.json();
@@ -67,8 +67,11 @@ function App() {
     return (
         <div className="admin-container">
             <header className="header">
-                <h1>Notion-News-Hub <span>Admin</span></h1>
-                <div className={`status-badge ${status.toLowerCase()}`}>{status}</div>
+                <h1>Notion-News-Hub <span>Hub</span></h1>
+                <div className={`status-badge ${status.toLowerCase()}`}>
+                    <span className="indicator"></span>
+                    {status}
+                </div>
             </header>
 
             <div className="grid">
@@ -142,7 +145,7 @@ function App() {
                             <label>Admin PIN</label>
                             <input
                                 type="password"
-                                placeholder="Required for Save"
+                                placeholder="PIN"
                                 value={adminPin}
                                 onChange={e => setAdminPin(e.target.value)}
                             />

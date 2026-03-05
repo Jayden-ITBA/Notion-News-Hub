@@ -1,16 +1,17 @@
 :root {
-    --bg-dark: #09090b;
-    --card-bg: rgba(24, 24, 27, 0.7);
-    --border-color: rgba(39, 39, 42, 0.8);
-    --accent-gold: #f0b429;
-    --accent-gold-light: #f7d070;
-    --accent-emerald: #10b981;
-    --text-primary: #fafafa;
-    --text-secondary: #a1a1aa;
+    --bg-main: #f0f7ff;
+    --surface: #ffffff;
+    --primary-pastel: #a8dcfb;
+    --primary-blue: #5d9cec;
+    --accent-soft: #dbeafe;
+    --text-main: #2d3436;
+    --text-muted: #636e72;
+    --border-light: #e1e8f0;
+    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.05);
 
-    font-family: 'Outfit', sans-serif;
-    background: var(--bg-dark);
-    color: var(--text-primary);
+    font-family: 'Inter', 'Be Vietnam Pro', sans-serif;
+    background: var(--bg-main);
+    color: var(--text-main);
 }
 
 * {
@@ -24,9 +25,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    overflow-x: hidden;
-    background: radial-gradient(circle at top right, rgba(240, 180, 41, 0.05), transparent),
-        radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), transparent);
+    background-color: var(--bg-main);
 }
 
 #root {
@@ -37,21 +36,24 @@ body {
 
 button {
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s ease;
     font-family: inherit;
+    border-radius: 12px;
 }
 
 input,
 select {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--border-color);
-    color: white;
-    padding: 10px 14px;
-    border-radius: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border-light);
+    color: var(--text-main);
+    padding: 12px 16px;
+    border-radius: 12px;
     outline: none;
-    transition: border-color 0.2s;
+    transition: all 0.2s;
+    font-size: 14px;
 }
 
 input:focus {
-    border-color: var(--accent-gold);
+    border-color: var(--primary-pastel);
+    box-shadow: 0 0 0 3px rgba(168, 220, 251, 0.2);
 }
