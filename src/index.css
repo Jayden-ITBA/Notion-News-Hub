@@ -1,13 +1,13 @@
 :root {
-    --bg-main: #f0f7ff;
+    --bg-main: #f0f4f3;
     --surface: #ffffff;
-    --primary-pastel: #a8dcfb;
-    --primary-blue: #5d9cec;
-    --accent-soft: #dbeafe;
+    --primary-pastel: #a8e6cf;
+    --primary-active: #99d98c;
+    --accent-soft: #d8f3dc;
     --text-main: #2d3436;
     --text-muted: #636e72;
-    --border-light: #e1e8f0;
-    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.05);
+    --border-light: #e0e0e0;
+    --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.04);
 
     font-family: 'Inter', 'Be Vietnam Pro', sans-serif;
     background: var(--bg-main);
@@ -26,12 +26,12 @@ body {
     justify-content: center;
     align-items: center;
     background-color: var(--bg-main);
+    padding: 20px;
 }
 
 #root {
     width: 100%;
-    max-width: 800px;
-    padding: 24px;
+    max-width: 900px;
 }
 
 button {
@@ -55,5 +55,5 @@ select {
 
 input:focus {
     border-color: var(--primary-pastel);
-    box-shadow: 0 0 0 3px rgba(168, 220, 251, 0.2);
+    box-shadow: 0 0 0 3px rgba(168, 230, 207, 0.2);
 }
