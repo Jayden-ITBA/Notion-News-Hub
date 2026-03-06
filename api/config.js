@@ -13,35 +13,43 @@ export default async function handler(req, res) {
     const { method } = req;
     const CONFIG_KEY = 'notion_news_hub_config';
 
-    switch (method) {
-        case 'GET':
-            let config = await kv.get(CONFIG_KEY);
-            if (!config) {
-                config = DEFAULT_CONFIG;
-                await kv.set(CONFIG_KEY, config);
-            }
-            return res.status(200).json(config);
+    try {
+        switch (method) {
+            case 'GET':
+                let config = await kv.get(CONFIG_KEY);
+                if (!config) {
+                    config = DEFAULT_CONFIG;
+                    await kv.set(CONFIG_KEY, config);
+                }
+                return res.status(200).json(config);
 
-        case 'POST':
-            const { sources, keywords, interval, adminPin } = req.body;
+            case 'POST':
+                const { sources, keywords, interval, adminPin } = req.body;
 
-            // Basic security check (NFR S-02)
-            if (adminPin !== process.env.ADMIN_PIN && process.env.ADMIN_PIN) {
-                return res.status(401).json({ error: 'Unauthorized: Invalid Admin PIN' });
-            }
+                // Basic security check (NFR S-02)
+                if (adminPin !== process.env.ADMIN_PIN && process.env.ADMIN_PIN) {
+                    return res.status(401).json({ error: 'Unauthorized: Invalid Admin PIN' });
+                }
 
-            const currentConfig = (await kv.get(CONFIG_KEY)) || DEFAULT_CONFIG;
-            
-            if (sources) currentConfig.sources = sources;
-            if (keywords) currentConfig.keywords = keywords;
-            if (interval) currentConfig.interval = interval;
+                const currentConfig = (await kv.get(CONFIG_KEY)) || DEFAULT_CONFIG;
 
-            await kv.set(CONFIG_KEY, currentConfig);
+                if (sources) currentConfig.sources = sources;
+                if (keywords) currentConfig.keywords = keywords;
+                if (interval) currentConfig.interval = interval;
 
-            return res.status(200).json({ status: 'Success', config: currentConfig });
+                await kv.set(CONFIG_KEY, currentConfig);
 
-        default:
-            res.setHeader('Allow', ['GET', 'POST']);
-            return res.status(405).end(`Method ${method} Not Allowed`);
+                return res.status(200).json({ status: 'Success', config: currentConfig });
+
+            default:
+                res.setHeader('Allow', ['GET', 'POST']);
+                return res.status(405).end(`Method ${method} Not Allowed`);
+        }
+    } catch (error) {
+        console.error('Config API Error:', error);
+        return res.status(500).json({
+            error: 'Server Error: ' + error.message,
+            tip: 'Check if Vercel KV is connected and configured correctly.'
+        });
     }
 }

@@ -31,13 +31,14 @@ function App() {
                 setStatus('Success');
                 setTimeout(() => setStatus('Idle'), 2000);
             } else {
-                const error = await res.json();
-                alert(error.error || 'Failed to save');
+                const data = await res.json();
+                alert(`Error: ${data.error}\n${data.tip || ''}`);
                 setStatus('Error');
             }
         } catch (e) {
+            console.error('Submit Error:', e);
             setStatus('Error');
-            alert('Network error');
+            alert('Network error: ' + e.message);
         }
     };
 
