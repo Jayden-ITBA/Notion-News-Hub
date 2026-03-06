@@ -2,16 +2,20 @@ import Parser from 'rss-parser';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Client } from "@notionhq/client";
 
+import { kv } from '@vercel/kv';
+
 const parser = new Parser();
+const CONFIG_KEY = 'notion_news_hub_config';
 
 export default async function handler(req, res) {
-    // 1. Initial configuration (normally from Vercel KV or DB)
-    // For now, we use a simple mock configuration
+    // 1. Load configuration from Vercel KV
+    const storedConfig = await kv.get(CONFIG_KEY);
+
     const config = {
-        sources: [
+        sources: storedConfig?.sources || [
             { name: 'BBC News', url: 'https://feeds.bbci.co.uk/news/rss.xml' }
         ],
-        keywords: ['AI', 'Tech', 'Economy'],
+        keywords: storedConfig?.keywords || ['AI', 'Tech', 'Economy'],
         geminiKey: process.env.GEMINI_API_KEY,
         notionKey: process.env.NOTION_API_KEY,
         notionDbId: process.env.NOTION_DATABASE_ID

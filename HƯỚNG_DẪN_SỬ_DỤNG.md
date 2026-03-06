@@ -11,32 +11,26 @@ Chào mừng bạn đến với **Notion News Hub** - Hệ thống tự động 
 1.  **Google Gemini API Key**: 
     *   Truy cập [Google AI Studio](https://aistudio.google.com/).
     *   Tạo bản ghi mới và lấy API Key. (Hệ thống sử dụng model `gemini-1.5-flash`).
-2.  **Notion API Key (Internal Integration Token)**:
-    *   Truy cập [Notion My Integrations](https://www.notion.so/my-integrations).
-    *   Tạo một Integration mới và sao chép `Internal Integration Token`.
-3.  **Notion Database ID**:
-    *   Tạo một Database trong Notion với các thuộc tính:
-        *   `Title` (Kiểu Title)
-        *   `Link` (Kiểu URL)
-        *   `Source` (Kiểu Select)
-        *   `Date` (Kiểu Date)
-        *   `Insights` (Kiểu Rich Text)
-    *   Kết nối Integration vừa tạo vào Database này (Top right -> Connect to).
-    *   Lấy ID của Database từ URL (Chuỗi ký tự sau dấu `/` và trước `?v=`).
-4.  **Admin PIN**:
-    *   Một mã PIN tự chọn (ví dụ: `1234`) để bảo mật quyền truy cập Admin UI.
+2.  **Notion API Key & Database ID**: Làm theo hướng dẫn trong Admin UI hoặc mục 3 bên dưới để kết nối.
+3.  **Vercel KV (Database)**: 
+    *   Trong Dashboard Vercel, chọn tab **Storage**.
+    *   Nhấn **Create** -> **KV (Redis)**.
+    *   Làm theo hướng dẫn để tạo Database và kết nối vào Project (Vercel sẽ tự động thêm biến môi trường `KV_URL`, `KV_REST_API_URL`).
+4.  **Admin PIN**: Mã PIN tự chọn để bảo mật.
 
 ---
 
 ## 2. Cài đặt và Triển khai
 
-### Triển khai lên Vercel
-1. Đảm bảo bạn đã có tài khoản Vercel và Git.
-2. Thiết lập các **Environment Variables** trên Vercel:
-   *   `GEMINI_API_KEY`: API Key của Google Gemini.
-   *   `NOTION_API_KEY`: Token của Notion Integration.
-   *   `NOTION_DATABASE_ID`: ID của Notion Database.
-   *   `ADMIN_PIN`: Mã PIN bảo mật của bạn.
+### Bước 1: Kết nối Vercel KV
+Sau khi tạo KV Storage trong Vercel, hãy đảm bảo bạn đã nhấn nút **Connect** để Vercel tự động thêm các biến môi trường cần thiết vào project.
+
+### Bước 2: Thiết lập Environment Variables
+Thiết lập các biến còn lại trên Vercel:
+*   `GEMINI_API_KEY`: API Key của Google Gemini.
+*   `NOTION_API_KEY`: Token của Notion Integration.
+*   `NOTION_DATABASE_ID`: ID của Notion Database.
+*   `ADMIN_PIN`: Mã PIN bảo mật của bạn.
 3. Deploy project.
 
 ---

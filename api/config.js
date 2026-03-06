@@ -1,8 +1,6 @@
-// This would ideally use Vercel KV or a DB
-// For the demo/initial Phase, we can use an internal variable (not persistent across cold starts)
-// or read from environment variables.
+import { kv } from '@vercel/kv';
 
-let mockStore = {
+const DEFAULT_CONFIG = {
     sources: [
         { name: 'BBC News', url: 'https://feeds.bbci.co.uk/news/rss.xml' },
         { name: 'TechCrunch', url: 'https://techcrunch.com/feed/' }
@@ -13,10 +11,16 @@ let mockStore = {
 
 export default async function handler(req, res) {
     const { method } = req;
+    const CONFIG_KEY = 'notion_news_hub_config';
 
     switch (method) {
         case 'GET':
-            return res.status(200).json(mockStore);
+            let config = await kv.get(CONFIG_KEY);
+            if (!config) {
+                config = DEFAULT_CONFIG;
+                await kv.set(CONFIG_KEY, config);
+            }
+            return res.status(200).json(config);
 
         case 'POST':
             const { sources, keywords, interval, adminPin } = req.body;
@@ -26,11 +30,15 @@ export default async function handler(req, res) {
                 return res.status(401).json({ error: 'Unauthorized: Invalid Admin PIN' });
             }
 
-            if (sources) mockStore.sources = sources;
-            if (keywords) mockStore.keywords = keywords;
-            if (interval) mockStore.interval = interval;
+            const currentConfig = (await kv.get(CONFIG_KEY)) || DEFAULT_CONFIG;
+            
+            if (sources) currentConfig.sources = sources;
+            if (keywords) currentConfig.keywords = keywords;
+            if (interval) currentConfig.interval = interval;
 
-            return res.status(200).json({ status: 'Success', config: mockStore });
+            await kv.set(CONFIG_KEY, currentConfig);
+
+            return res.status(200).json({ status: 'Success', config: currentConfig });
 
         default:
             res.setHeader('Allow', ['GET', 'POST']);
