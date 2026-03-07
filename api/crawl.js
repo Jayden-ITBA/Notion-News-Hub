@@ -30,25 +30,33 @@ export default async function handler(req, res) {
     const notion = new Client({ auth: config.notionKey });
 
     const results = [];
+    const SYNCED_URLS_KEY = 'synced_news_urls';
+
+    // Load already synced URLs to prevent duplicates
+    const syncedUrls = await kv.get(SYNCED_URLS_KEY) || [];
 
     try {
         for (const source of config.sources) {
             const feed = await parser.parseURL(source.url);
 
             for (const item of feed.items) {
-                const textToSearch = `${item.title} ${item.contentSnippet || item.content}`.toLowerCase();
+                // Deduplication check
+                if (syncedUrls.includes(item.link)) continue;
+
+                const textToSearch = `${item.title} ${item.contentSnippet || item.content || ''}`.toLowerCase();
                 const matches = config.keywords.some(kw => textToSearch.includes(kw.toLowerCase()));
 
                 if (matches) {
                     // 2. Generate AI Summary
                     const prompt = `
-            Analyze this news article:
-            Title: ${item.title}
-            Summary: ${item.contentSnippet || item.content}
-            Date: ${item.pubDate}
-
-            Please provide exactly 3 concise bullet points (Vietnamese) summarizing the key insights.
-            Format the output as a literal JSON object: {"summary": ["point 1", "point 2", "point 3"]}
+            Làm nhiệm vụ tóm tắt tin tức chuyên nghiệp. 
+            Tiêu đề: ${item.title}
+            Nội dung: ${item.contentSnippet || item.content}
+            
+            Yêu cầu:
+            1. Cung cấp đúng 3 gạch đầu dòng ngắn gọn bằng tiếng Việt.
+            2. Mỗi ý tập trung vào một thông tin quan trọng nhất.
+            3. Trả về định dạng JSON: {"summary": ["ý 1", "ý 2", "ý 3"]}
           `;
 
                     const aiResponse = await model.generateContent(prompt);
@@ -64,7 +72,8 @@ export default async function handler(req, res) {
                     await notion.pages.create({
                         parent: { database_id: config.notionDbId },
                         properties: {
-                            Title: { title: [{ text: { content: item.title } }] },
+                            'Article': { title: [{ text: { content: item.title } }] }, // Mandatory Title column in Notion
+                            Title: { rich_text: [{ text: { content: item.title } }] },     // Your Text column
                             Link: { url: item.link },
                             Source: { select: { name: source.name } },
                             Date: { date: { start: new Date(item.pubDate).toISOString() } },
@@ -89,9 +98,13 @@ export default async function handler(req, res) {
                     });
 
                     results.push({ title: item.title, status: 'Synced' });
+                    syncedUrls.push(item.link);
                 }
             }
         }
+
+        // Update synced URLs list (keep last 200 items to manage KV size)
+        await kv.set(SYNCED_URLS_KEY, syncedUrls.slice(-200));
 
         return res.status(200).json({ status: 'Success', processed: results.length, details: results });
     } catch (error) {

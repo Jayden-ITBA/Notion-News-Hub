@@ -10,17 +10,25 @@ function App() {
     const [newSource, setNewSource] = useState({ name: '', url: '' });
     const [newKeyword, setNewKeyword] = useState('');
     const [adminPin, setAdminPin] = useState('');
+    const [error, setError] = useState(null);
     const [status, setStatus] = useState('Idle');
 
     useEffect(() => {
         fetch('/api/config')
             .then(res => res.json())
-            .then(data => setConfig(data))
+            .then(data => {
+                if (data && data.sources) {
+                    setConfig(data);
+                } else {
+                    console.warn('Invalid config received, using defaults:', data);
+                }
+            })
             .catch(err => console.error('Failed to load config:', err));
     }, []);
 
     const handleSave = async () => {
         setStatus('Saving...');
+        setError(null);
         try {
             const res = await fetch('/api/config', {
                 method: 'POST',
@@ -32,13 +40,32 @@ function App() {
                 setTimeout(() => setStatus('Idle'), 2000);
             } else {
                 const data = await res.json();
-                alert(`Error: ${data.error}\n${data.tip || ''}`);
+                setError(data.error || 'Failed to save configuration.');
                 setStatus('Error');
             }
         } catch (e) {
             console.error('Submit Error:', e);
             setStatus('Error');
-            alert('Network error: ' + e.message);
+            setError('Network error: ' + e.message);
+        }
+    };
+
+    const handleManualSync = async () => {
+        setStatus('Syncing...');
+        setError(null);
+        try {
+            const res = await fetch('/api/crawl');
+            const data = await res.json();
+            if (res.ok) {
+                setStatus(`Synced ${data.processed} items`);
+                setTimeout(() => setStatus('Idle'), 3000);
+            } else {
+                setError(data.error || 'Crawl failed.');
+                setStatus('Error');
+            }
+        } catch (e) {
+            setStatus('Error');
+            setError('Crawl network error: ' + e.message);
         }
     };
 
@@ -155,7 +182,15 @@ function App() {
                 </section>
             </div>
 
+            {error && (
+                <div className="error-banner">
+                    <span className="error-icon">⚠️</span>
+                    {error}
+                </div>
+            )}
+
             <footer className="footer">
+                <button onClick={handleManualSync} className="btn-secondary">Run Sync Now</button>
                 <button onClick={handleSave} className="btn-primary">Submit Changes</button>
             </footer>
         </div>

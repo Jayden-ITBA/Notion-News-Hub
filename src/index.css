@@ -1,17 +1,19 @@
 :root {
-    --bg-main: #f0f4f3;
-    --surface: #ffffff;
-    --primary-pastel: #a8e6cf;
-    --primary-active: #99d98c;
-    --accent-soft: #d8f3dc;
-    --text-main: #2d3436;
-    --text-muted: #636e72;
-    --border-light: #e0e0e0;
-    --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.04);
+    --bg-main: #f8fafc;
+    --surface: rgba(255, 255, 255, 0.85);
+    --primary-main: #059669;
+    --primary-light: #34d399;
+    --accent-gold: #fbbf24;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border-glass: rgba(226, 232, 240, 0.5);
+    --shadow-premium: 0 20px 50px -12px rgba(0, 0, 0, 0.08);
+    --glass-blur: blur(12px);
 
-    font-family: 'Inter', 'Be Vietnam Pro', sans-serif;
-    background: var(--bg-main);
+    font-family: 'Inter', 'Be Vietnam Pro', system-ui, sans-serif;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     color: var(--text-main);
+    -webkit-font-smoothing: antialiased;
 }
 
 * {
