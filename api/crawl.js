@@ -11,9 +11,20 @@ const parser = new Parser({
 });
 const CONFIG_KEY = 'notion_news_hub_config';
 
+const parser = new Parser();
+const CONFIG_KEY = 'notion_news_hub_config';
+const APP_VERSION = '1.0.4 - Diagnostic Mode';
+
 export default async function handler(req, res) {
+    console.log(`Crawl triggered - Version: ${APP_VERSION}`);
+    
     // 1. Load configuration from Vercel KV
-    const storedConfig = await kv.get(CONFIG_KEY);
+    let storedConfig;
+    try {
+        storedConfig = await kv.get(CONFIG_KEY);
+    } catch (kvError) {
+        return res.status(500).json({ error: 'Failed to access Vercel KV', details: kvError.message });
+    }
 
     const config = {
         sources: Array.isArray(storedConfig?.sources) ? storedConfig.sources : [
@@ -25,8 +36,15 @@ export default async function handler(req, res) {
         notionDbId: process.env.NOTION_DATABASE_ID
     };
 
-    if (!config.geminiKey || !config.notionKey) {
-        return res.status(500).json({ error: 'System missing API keys' });
+    if (!config.geminiKey || !config.notionKey || !config.notionDbId) {
+        return res.status(500).json({ 
+            error: 'System missing configuration', 
+            missing: { 
+                gemini: !config.geminiKey, 
+                notion: !config.notionKey, 
+                db: !config.notionDbId 
+            } 
+        });
     }
 
     const genAI = new GoogleGenerativeAI(config.geminiKey);
@@ -37,34 +55,45 @@ export default async function handler(req, res) {
     const errors = [];
     const SYNCED_URLS_KEY = 'synced_news_urls';
 
-    // Load already synced URLs to prevent duplicates
-    const syncedUrls = await kv.get(SYNCED_URLS_KEY) || [];
+    const syncedUrls = (await kv.get(SYNCED_URLS_KEY)) || [];
 
     try {
         for (const source of config.sources) {
             if (!source?.url) continue;
             
+            console.log(`Processing source: ${source.name} (${source.url})`);
+            
             try {
-                const feed = await parser.parseURL(source.url);
+                // Fetch manually first to see what we're getting
+                const response = await fetch(source.url, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Notion-News-Hub/1.0)' }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+                }
+                
+                const xmlText = await response.text();
+                
+                // Basic check if it's HTML instead of XML
+                if (xmlText.trim().toLowerCase().startsWith('<!doctype html') || xmlText.includes('<html')) {
+                    throw new Error('Received HTML instead of RSS. The source might be blocking the request or the URL is incorrect.');
+                }
+
+                const feed = await parser.parseString(xmlText);
 
                 for (const item of feed.items) {
-                    // Deduplication check
                     if (!item.link || syncedUrls.includes(item.link)) continue;
 
                     const textToSearch = `${item.title} ${item.contentSnippet || item.content || ''}`.toLowerCase();
                     const matches = config.keywords.some(kw => textToSearch.includes(kw.toLowerCase()));
 
                     if (matches) {
-                        // 2. Generate AI Summary
                         const prompt = `
             Làm nhiệm vụ tóm tắt tin tức chuyên nghiệp. 
             Tiêu đề: ${item.title}
             Nội dung: ${item.contentSnippet || item.content}
-            
-            Yêu cầu:
-            1. Cung cấp đúng 3 gạch đầu dòng ngắn gọn bằng tiếng Việt.
-            2. Mỗi ý tập trung vào một thông tin quan trọng nhất.
-            3. Trả về định dạng JSON: {"summary": ["ý 1", "ý 2", "ý 3"]}
+            Yêu cầu: 3 gạch đầu dòng ngắn gọn tiếng Việt. Trả về JSON: {"summary": ["..."]}
           `;
 
                         const aiResponse = await model.generateContent(prompt);
@@ -76,7 +105,6 @@ export default async function handler(req, res) {
                             insight = { summary: ["Could not parse AI summary"] };
                         }
 
-                        // 3. Sync to Notion
                         await notion.pages.create({
                             parent: { database_id: config.notionDbId },
                             properties: {
@@ -85,23 +113,7 @@ export default async function handler(req, res) {
                                 Source: { select: { name: source.name || 'Unknown' } },
                                 Date: { date: { start: new Date(item.pubDate || new Date()).toISOString() } },
                                 Insights: { rich_text: [{ text: { content: (insight.summary || []).join('\n') } }] }
-                            },
-                            children: [
-                                {
-                                    object: 'block',
-                                    type: 'paragraph',
-                                    paragraph: {
-                                        rich_text: [{ text: { content: 'Key Insights (30s):' }, annotations: { bold: true } }]
-                                    }
-                                },
-                                ...(insight.summary || []).map(point => ({
-                                    object: 'block',
-                                    type: 'bulleted_list_item',
-                                    bulleted_list_item: {
-                                        rich_text: [{ text: { content: point } }]
-                                    }
-                                }))
-                            ]
+                            }
                         });
 
                         results.push({ title: item.title, status: 'Synced' });
@@ -109,22 +121,22 @@ export default async function handler(req, res) {
                     }
                 }
             } catch (sourceError) {
-                console.error(`Error processing source ${source.name}:`, sourceError);
+                console.error(`Error in source ${source.name}:`, sourceError.message);
                 errors.push({ source: source.name || source.url, error: sourceError.message });
             }
         }
 
-        // Update synced URLs list (keep last 200 items to manage KV size)
         await kv.set(SYNCED_URLS_KEY, syncedUrls.slice(-200));
 
         return res.status(200).json({ 
+            version: APP_VERSION,
             status: 'Done', 
             processed: results.length, 
             synced: results,
             errors: errors.length > 0 ? errors : undefined 
         });
     } catch (error) {
-        console.error('Crawl Error:', error);
-        return res.status(500).json({ error: error.message });
+        console.error('Core Crawl Error:', error);
+        return res.status(500).json({ version: APP_VERSION, error: error.message });
     }
 }
