@@ -4,13 +4,6 @@ import { Client } from "@notionhq/client";
 
 import { kv } from '@vercel/kv';
 
-const parser = new Parser({
-    headers: {
-        'User-Agent': 'Mozilla/5.0 (Notion-News-Hub/1.0; +https://notionnewshub.vercel.app)',
-    }
-});
-const CONFIG_KEY = 'notion_news_hub_config';
-
 const parser = new Parser();
 const CONFIG_KEY = 'notion_news_hub_config';
 const APP_VERSION = '1.0.4 - Diagnostic Mode';
