@@ -4,7 +4,11 @@ import { Client } from "@notionhq/client";
 
 import { kv } from '@vercel/kv';
 
-const parser = new Parser();
+const parser = new Parser({
+    headers: {
+        'User-Agent': 'Mozilla/5.0 (Notion-News-Hub/1.0; +https://notionnewshub.vercel.app)',
+    }
+});
 const CONFIG_KEY = 'notion_news_hub_config';
 
 export default async function handler(req, res) {
@@ -12,10 +16,10 @@ export default async function handler(req, res) {
     const storedConfig = await kv.get(CONFIG_KEY);
 
     const config = {
-        sources: storedConfig?.sources || [
+        sources: Array.isArray(storedConfig?.sources) ? storedConfig.sources : [
             { name: 'BBC News', url: 'https://feeds.bbci.co.uk/news/rss.xml' }
         ],
-        keywords: storedConfig?.keywords || ['AI', 'Tech', 'Economy'],
+        keywords: Array.isArray(storedConfig?.keywords) ? storedConfig.keywords : ['AI', 'Tech', 'Economy'],
         geminiKey: process.env.GEMINI_API_KEY,
         notionKey: process.env.NOTION_API_KEY,
         notionDbId: process.env.NOTION_DATABASE_ID
@@ -30,6 +34,7 @@ export default async function handler(req, res) {
     const notion = new Client({ auth: config.notionKey });
 
     const results = [];
+    const errors = [];
     const SYNCED_URLS_KEY = 'synced_news_urls';
 
     // Load already synced URLs to prevent duplicates
@@ -37,12 +42,14 @@ export default async function handler(req, res) {
 
     try {
         for (const source of config.sources) {
+            if (!source?.url) continue;
+            
             try {
                 const feed = await parser.parseURL(source.url);
 
                 for (const item of feed.items) {
                     // Deduplication check
-                    if (syncedUrls.includes(item.link)) continue;
+                    if (!item.link || syncedUrls.includes(item.link)) continue;
 
                     const textToSearch = `${item.title} ${item.contentSnippet || item.content || ''}`.toLowerCase();
                     const matches = config.keywords.some(kw => textToSearch.includes(kw.toLowerCase()));
@@ -75,9 +82,9 @@ export default async function handler(req, res) {
                             properties: {
                                 Title: { title: [{ text: { content: item.title } }] },
                                 Link: { url: item.link },
-                                Source: { select: { name: source.name } },
-                                Date: { date: { start: new Date(item.pubDate).toISOString() } },
-                                Insights: { rich_text: [{ text: { content: insight.summary.join('\n') } }] }
+                                Source: { select: { name: source.name || 'Unknown' } },
+                                Date: { date: { start: new Date(item.pubDate || new Date()).toISOString() } },
+                                Insights: { rich_text: [{ text: { content: (insight.summary || []).join('\n') } }] }
                             },
                             children: [
                                 {
@@ -87,7 +94,7 @@ export default async function handler(req, res) {
                                         rich_text: [{ text: { content: 'Key Insights (30s):' }, annotations: { bold: true } }]
                                     }
                                 },
-                                ...insight.summary.map(point => ({
+                                ...(insight.summary || []).map(point => ({
                                     object: 'block',
                                     type: 'bulleted_list_item',
                                     bulleted_list_item: {
@@ -103,13 +110,19 @@ export default async function handler(req, res) {
                 }
             } catch (sourceError) {
                 console.error(`Error processing source ${source.name}:`, sourceError);
+                errors.push({ source: source.name || source.url, error: sourceError.message });
             }
         }
 
         // Update synced URLs list (keep last 200 items to manage KV size)
         await kv.set(SYNCED_URLS_KEY, syncedUrls.slice(-200));
 
-        return res.status(200).json({ status: 'Success', processed: results.length, details: results });
+        return res.status(200).json({ 
+            status: 'Done', 
+            processed: results.length, 
+            synced: results,
+            errors: errors.length > 0 ? errors : undefined 
+        });
     } catch (error) {
         console.error('Crawl Error:', error);
         return res.status(500).json({ error: error.message });
