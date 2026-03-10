@@ -41,6 +41,7 @@ export default async function handler(req, res) {
     }
 
     const genAI = new GoogleGenerativeAI(config.geminiKey);
+    // Explicitly use gemini-1.5-flash and ensure we handle potential versioning issues
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const notion = new Client({ auth: config.notionKey });
 
@@ -57,9 +58,13 @@ export default async function handler(req, res) {
             console.log(`Processing source: ${source.name} (${source.url})`);
             
             try {
-                // Fetch manually first to see what we're getting
+                // Use a REAL browser User-Agent to avoid being blocked
                 const response = await fetch(source.url, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Notion-News-Hub/1.0)' }
+                    headers: { 
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                        'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+                    },
+                    signal: AbortSignal.timeout(10000) // 10s timeout
                 });
                 
                 if (!response.ok) {
