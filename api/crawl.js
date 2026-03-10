@@ -73,8 +73,7 @@ export default async function handler(req, res) {
                         await notion.pages.create({
                             parent: { database_id: config.notionDbId },
                             properties: {
-                                'Article': { title: [{ text: { content: item.title } }] }, // Mandatory Title column in Notion
-                                Title: { rich_text: [{ text: { content: item.title } }] },     // Your Text column
+                                Title: { title: [{ text: { content: item.title } }] },
                                 Link: { url: item.link },
                                 Source: { select: { name: source.name } },
                                 Date: { date: { start: new Date(item.pubDate).toISOString() } },
