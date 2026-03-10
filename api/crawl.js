@@ -100,17 +100,18 @@ export default async function handler(req, res) {
                         results.push({ title: item.title, status: 'Synced' });
                         syncedUrls.push(item.link);
                     }
-                } catch (sourceError) {
-                    console.error(`Error processing source ${source.name}:`, sourceError);
                 }
+            } catch (sourceError) {
+                console.error(`Error processing source ${source.name}:`, sourceError);
             }
+        }
 
         // Update synced URLs list (keep last 200 items to manage KV size)
         await kv.set(SYNCED_URLS_KEY, syncedUrls.slice(-200));
 
-            return res.status(200).json({ status: 'Success', processed: results.length, details: results });
-        } catch (error) {
-            console.error('Crawl Error:', error);
-            return res.status(500).json({ error: error.message });
-        }
+        return res.status(200).json({ status: 'Success', processed: results.length, details: results });
+    } catch (error) {
+        console.error('Crawl Error:', error);
+        return res.status(500).json({ error: error.message });
     }
+}
